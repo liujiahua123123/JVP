@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KIM Cloud</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mdui@0.4.3/dist/css/mdui.min.css" crossorigin="anonymous"/>
+    <script src="https://cdn.jsdelivr.net/npm/mdui@0.4.3/dist/js/mdui.min.js" crossorigin="anonymous"></script>
+    <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+    <script src="utils.js"></script>
+
+    <style>
+        button{
+            color: white;
+        }
+    </style>
+
+    <script>
+        var isExecuting = false;
+
+        function refreshHeader(){
+            document.dataPost("/list",{},function (success, data) {
+
+                var pkt = data.packets;
+                var display = "-";
+
+                if(data.userKindString === "ONETAP_MANAGER"){
+                    display += "OP大师(剩余" + data.opRemains +"次)"
+                }
+
+                if(data.userKindString === "SK_MANAGER"){
+                    display += "SK大师"
+                }
+
+                $("#usertype").text(display);
+            })
+
+        }
+        $(window).ready(function(){
+
+            $("#t_username").text(getCookie("displayName"))
+            refreshHeader();
+            var product = getQueryVariable("name")
+            $("#product_name").text("打包 " + product + " 组")
+
+            var executeButton = $('#execute')
+            executeButton.click(function(){
+                if(isExecuting){
+                    return;
+                }
+                isExecuting = true;
+                executeButton.attr("disabled",true)
+
+                document.dataPost("/execute",{
+                    productName: product,
+                    preference: {
+                        virtualizePercentage: $("#vA").val(),
+                        virtualizeBindingPercentage: $("#vB").val(),
+                        enableScopeRename: $("#renameScope").is(':checked'),
+                        enableLocalFunctionRename: $("#renameF").is(':checked'),
+                        enableLocalVariableRename: $("#renameV").is(':checked'),
+                        enableStringSplit: $("#renameStr").is(':checked'),
+                        username: $("#username").val(),
+                    }
+                },function (success, data) {
+                    isExecuting = false;
+                    executeButton.attr("disabled",false)
+                    if(success){
+                        refreshHeader();
+                        downloadDialog(data)
+                    }
+                })
+            });
+        })
+        function getQueryVariable(variable)
+        {
+            var query = window.location.search.substring(1);
+            var vars = query.split("&");
+            for (var i=0;i<vars.length;i++) {
+                var pair = vars[i].split("=");
+                if(pair[0] == variable){return pair[1];}
+            }
+            return(false);
+        }
+
+        function getCookie(name)
+        {
+            var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+            if(arr=document.cookie.match(reg))
+                return unescape(arr[2]);
+            else
+                return null;
+        }
+
+
+        function downloadDialog(data){
+            var downloadLink = "/download?id=" + data.id + "&acquirePassword=" + data.acquirePassword + "&parent=" + data.parent
+            mdui.dialog({
+                title: '文件准备完成',
+                content: "点击<a href='" + downloadLink + "'>下载</a>",
+            });
+        }
+
+
+
+    </script>
+</head>
+<body class="mdui-theme-layout-dark mdui-theme-accent-orange mdui-theme-primary-teal">
+
+
+<div style="height: 100vh;overflow: scroll">
+    <div class="mdui-toolbar mdui-color-theme">
+        <span class="mdui-typo-title"><a id="t_username"></a> <a id="usertype">{Type}</a></span>
+        <div class="mdui-toolbar-spacer"></div>
+        <a href="javascript:;" class="mdui-btn mdui-btn-icon"><i class="mdui-icon material-icons">cloud</i></a>
+    </div>
+
+
+    <div class="mdui-tab mdui-tab-centered" mdui-tab>
+        <a href="#executeJs" class="mdui-ripple">加密JS</a>
+        <a href="#executeRecords" class="mdui-ripple">加密记录</a>
+    </div>
+
+
+    <div id="executeJs">
+        <div style="padding-top: 30px;display: flex;flex-direction: row;flex-wrap: wrap;justify-content: flex-start;">
+
+            <div style="height: 50px"></div>
+
+            <div class="mdui-shadow-2 mdui-typo" style="width: 70%; margin-left: 15%;padding: 10px">
+                <div>
+                    <div class="mdui-textfield">
+                        <label class="mdui-textfield-label">绑定的用户名</label>
+                        <input class="mdui-textfield-input" type="text" id="username"/>
+                    </div>
+                    <div class="mdui-textfield">
+                        <label class="mdui-textfield-label">虚拟化收集(百分比)</label>
+                        <label class="mdui-slider mdui-slider-discrete">
+                            <input id="vA" type="range" step="1" min="30" max="100" value="50"/>
+                        </label>
+                    </div>
+                    <div class="mdui-textfield">
+                        <label class="mdui-textfield-label">虚拟化额外绑定(百分比)</label>
+                        <label class="mdui-slider mdui-slider-discrete">
+                            <input id="vB" type="range" step="1" min="30" max="100" value="50"/>
+                        </label>
+                    </div>
+                    <div class="mdui-row-sm-2 mdui-row-md-2 mdui-row-lg-4 mdui-row-xl-4">
+                        <div class="mdui-col">
+                            <label class="mdui-checkbox">
+                                <input id="renameV" type="checkbox" checked/>
+                                <i class="mdui-checkbox-icon"></i>
+                                混淆全局变量
+                            </label>
+                        </div>
+                        <div class="mdui-col">
+                            <label class="mdui-checkbox">
+                                <input id="renameF" type="checkbox" checked/>
+                                <i class="mdui-checkbox-icon"></i>
+                                混淆全局方法/Callback
+                            </label>
+                        </div>
+                        <div class="mdui-col">
+                            <label class="mdui-checkbox">
+                                <input id="renameStr" type="checkbox" checked/>
+                                <i class="mdui-checkbox-icon"></i>
+                                混淆UI参数路径名字
+                            </label>
+                        </div>
+                        <div class="mdui-col">
+                            <label class="mdui-checkbox">
+                                <input id="renameScope" type="checkbox" checked/>
+                                <i class="mdui-checkbox-icon"></i>
+                                混淆局域变量名
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mdui-typo">
+                        <blockquote>
+                            <p>不支持 <code>cheat_register_callback = Cheat.RegisterCallback</code> 的混淆</p>
+                            <p>透露混淆后文件所对应的用户名，会导致JS可能被破解</p>
+                            <p>最终用户加载时的<code>计算量负担 = 虚拟化收集 * (1 + 虚拟化额外绑定) + C</code></p>
+                            <p>如果有十分重要的逻辑, 推荐先使用其他混淆保护逻辑(Flow)</p>
+                            <p>若你发现你的JS被泄漏, 可以携带泄露的JS文件联系KIM反向查询授权的用户名</p>
+                            <footer>(JVP for <a href="https://onetap.su">Onetap</a>) 1.0.0 Alpha (For Testing Purpose)</footer>
+                        </blockquote>
+                    </div>
+                    <div class="mdui-row-xs-1">
+                        <div class="mdui-col">
+                            <button id="execute" class="mdui-btn mdui-btn-block mdui-color-theme-accent mdui-ripple"><a style="color: white" id="product_name">打包 {Name} 包</a></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="executeRecords">
+
+    </div>
+</div>
+
+</body>
+</html>
